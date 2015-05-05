@@ -2,12 +2,15 @@ package com.tantrik.desktopnotifier;
 
 import android.app.Activity;
 import android.content.Context;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.telephony.*;
 import android.widget.Toast;
+
+import com.google.android.gms.gcm.GoogleCloudMessaging;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -18,11 +21,19 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 public class SendNotificationRequest extends Activity {
-
+    private int PORT = 1234;
+    ServerSocket httpServerSocket;
+    GoogleCloudMessaging gcm;
+    String regid = "";
+    String SENDER_ID = "337222096179";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -30,6 +41,11 @@ public class SendNotificationRequest extends Activity {
         Context ctx = SendNotificationRequest.this;
         TelephonyManager tm = (TelephonyManager) ctx.getSystemService(Context.TELEPHONY_SERVICE);
         tm.listen(new PhoneListener(), PhoneStateListener.LISTEN_CALL_STATE);
+        WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
+        int ipAddress = wifiManager.getConnectionInfo().getIpAddress();
+        GcmRegister gcmRegister = new GcmRegister();
+        gcmRegister.start();
+        Log.d("IP Address", Integer.toString(ipAddress));
     }
 
 
@@ -68,10 +84,25 @@ public class SendNotificationRequest extends Activity {
             }
         }
     }
+
+    class GcmRegister extends Thread{
+        public void run() {
+            try {
+                gcm = GoogleCloudMessaging.getInstance(SendNotificationRequest.this);
+                regid = gcm.register(SENDER_ID);
+                new SendPost(regid).start();
+                Log.d("Registration Id", regid);
+            } catch (IOException io) {
+                io.printStackTrace();
+            }
+        }
+    }
+
+
 }
 class SendPost extends Thread{
     private String incomingNumber = null;
-    private String postUrl = "phonenotifer.herokuapp.com";
+    private String postUrl = "http://192.168.1.7:8888/gcmId";
     private HttpClient httpClient = null;
     private HttpPost httpPost = null;
     SendPost(String incomingNumber){
@@ -80,8 +111,7 @@ class SendPost extends Thread{
     public void run(){
         httpClient = new DefaultHttpClient();
         httpPost = new HttpPost(postUrl);
-        String attribute = "phone_number";
-
+        String attribute = "gcmId";
         List<NameValuePair> postData = new ArrayList<NameValuePair>();
         postData.add(new BasicNameValuePair(attribute, incomingNumber));
         try {
@@ -97,3 +127,5 @@ class SendPost extends Thread{
 
     }
 }
+
+
