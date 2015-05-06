@@ -1,13 +1,19 @@
 package com.tantrik.desktopnotifier;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.telephony.*;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 import android.widget.Toast;
 
 import com.google.android.gms.gcm.GoogleCloudMessaging;
@@ -25,6 +31,7 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
@@ -34,18 +41,34 @@ public class SendNotificationRequest extends Activity {
     GoogleCloudMessaging gcm;
     String regid = "";
     String SENDER_ID = "337222096179";
+    final String SOME_ACTION = "com.tantrik.receive.GCM";
+    String items[] = {};
+    ArrayList<String> lst = new ArrayList<String>();
+
+    ArrayAdapter<String> itemsAdapter = null;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_send_notification_request);
         Context ctx = SendNotificationRequest.this;
-        TelephonyManager tm = (TelephonyManager) ctx.getSystemService(Context.TELEPHONY_SERVICE);
-        tm.listen(new PhoneListener(), PhoneStateListener.LISTEN_CALL_STATE);
-        WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
-        int ipAddress = wifiManager.getConnectionInfo().getIpAddress();
+        lst.addAll(Arrays.asList(items));
+        itemsAdapter =
+                new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, lst);
+        ListView listView = (ListView) findViewById(R.id.list);
+        listView.setAdapter(itemsAdapter);
+
+        IntentFilter intentFilter = new IntentFilter(SOME_ACTION);
+
+        ctx.registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                itemsAdapter.add(intent.getExtras().getString("message"));
+                itemsAdapter.setNotifyOnChange(true);
+            }
+        }, intentFilter);
+
         GcmRegister gcmRegister = new GcmRegister();
         gcmRegister.start();
-        Log.d("IP Address", Integer.toString(ipAddress));
     }
 
 
@@ -53,7 +76,7 @@ public class SendNotificationRequest extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_send_notification_request, menu);
-        return true;
+         return true;
     }
 
     @Override
@@ -70,20 +93,6 @@ public class SendNotificationRequest extends Activity {
 
         return super.onOptionsItemSelected(item);
     }
-    class PhoneListener extends PhoneStateListener{
-        public void onCallStateChanged(int state, String incomingNumber) {
-            switch (state) {
-                case TelephonyManager.CALL_STATE_RINGING:
-                    // called when someone is ringing to this phone
-                    Thread t = new Thread(new SendPost(incomingNumber));
-                    t.start();
-                    Toast.makeText(SendNotificationRequest.this,
-                            "Incoming: " + incomingNumber,
-                            Toast.LENGTH_LONG).show();
-                    break;
-            }
-        }
-    }
 
     class GcmRegister extends Thread{
         public void run() {
@@ -97,6 +106,11 @@ public class SendNotificationRequest extends Activity {
             }
         }
     }
+
+    public void broadcastIntent(View view){
+
+    }
+
 
 
 }
